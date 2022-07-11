@@ -8,7 +8,11 @@ resource "aws_instance" "demo" {
   instance_type        = var.example_instance_type
   user_data            = file("./userdata/setup.sh")
   iam_instance_profile = "SSMTest"
-  subnet_id            = "subnet-05b75876bd5169df1"
+  subnet_id            = aws_subnet.private_0.id
+
+  tags = {
+    Name = "demo"
+  }
 }
 
 //ネットワーク周り
@@ -324,6 +328,119 @@ resource "aws_lb_listener" "redirect_http_to_https" {
     }
   }
 }
+
+resource "aws_lb_target_group" "demo" {
+  name                 = "demo"
+  target_type          = "ip"
+  vpc_id               = aws_vpc.demo.id
+  port                 = 80
+  protocol             = "HTTP"
+  deregistration_delay = 300
+
+  health_check {
+    path              = "/"
+    healthy_threshold = 5
+    unhealthy_threshold = 2
+    interval = 30
+    matcher = 200
+    port = "traffic-port"
+    protocol = "HTTP"
+  }
+  depends_on = [aws_lb.demo]
+}
+
+resource "aws_lb_listener_rule" "demo" {
+  listener_arn = aws_lb_listener.https.arn
+  priority = 100
+
+  action {
+    type = "forward"
+    target_group_arn = aws_lb_target_group.demo.arn
+  }
+
+  /*
+    以下は書き方が変わったので確認が必要
+    https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener_rule
+  */
+  condition {
+    path_pattern {
+      values = ["/*"]
+    }
+  }
+}
+
+// ECS
+resource "aws_ecs_cluster" "demo" {
+  name = "demo"
+}
+
+// ECSのタスク定義　書き方が書籍と現在では違う
+// https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_task_definition
+resource "aws_ecs_task_definition" "demo" {
+  //container_definitions = file("task-definitions/container_definitions.json")
+
+  container_definitions = jsonencode([
+        {
+          name      = "demo"
+          image     = "nginx:latest"
+          cpu       = 1
+          memory    = 1024
+          essential = true
+          portMappings = [
+            {
+              containerPort = 80
+              hostPort      = 80
+              protocol      = "tcp"
+            }
+          ]
+        }
+      ]
+    )
+
+  family                = "demo"
+  //memory = "512"
+  //cpu = "256"
+  network_mode = "awsvpc" //別モードも調べる
+  requires_compatibilities = ["FARGATE"]
+}
+
+resource "aws_ecs_service" "demo" {
+  name = "demo"
+  cluster = aws_ecs_cluster.demo.arn
+  task_definition = aws_ecs_task_definition.demo.arn
+  desired_count = 2
+  launch_type = "FARGATE"
+  platform_version = "1.4.0"
+  health_check_grace_period_seconds = 60
+
+  network_configuration {
+    assign_public_ip = false
+    security_groups  = [module.nginx_sg.security_group_id]
+    subnets          = [
+      aws_subnet.private_0.id,
+      aws_subnet.private_1.id,
+    ]
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.demo.arn
+    container_name = "demo"
+    container_port = 80
+  }
+
+  lifecycle {
+    ignore_changes = [task_definition]
+  }
+}
+
+module "nginx_sg" {
+  source = "./sg"
+  name = "ginx_sg"
+  vpc_id = aws_vpc.demo.id
+  port = 80
+  cidr_blocks = [aws_vpc.demo.cidr_block]
+}
+//==============================================
 
 output "instance_id" {
   value = aws_instance.demo.id
