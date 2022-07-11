@@ -3,7 +3,14 @@
    "name": "demo",
     "image": "nginx:latest",
     "essential": true,
-    "memory": 128,
+    "logConfiguration": {
+      "logDriver": "awslogs",
+      "options": {
+        "awslogs-region": "ap-northeast-1",
+        "awslogs-stream-prefix": "nginx",
+        "awslogs-group": "/ecs/demo"
+      }
+    },
     "portMappings": [
       {
         "protocol": "tcp",

@@ -403,6 +403,7 @@ resource "aws_ecs_task_definition" "demo" {
   cpu = "256"
   network_mode = "awsvpc" //別モードも調べる
   requires_compatibilities = ["FARGATE"]
+  execution_role_arn = module.ecs_task_ececution_role.iam_role_arn
 }
 
 resource "aws_ecs_service" "demo" {
@@ -442,6 +443,34 @@ module "nginx_sg" {
   cidr_blocks = [aws_vpc.demo.cidr_block]
 }
 //==============================================
+// CloudWatch Logs
+resource "aws_cloudwatch_log_group" "for_ecs" {
+  name = "/ecs/demo"
+  retention_in_days = 1
+}
+
+data "aws_iam_policy" "ecs_task_ececution_role_policy" {
+  arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
+data "aws_iam_policy_document" "ecs_task_ececution" {
+  source_json = data.aws_iam_policy.ecs_task_ececution_role_policy.policy
+
+  statement {
+    effect = "Allow"
+    actions = ["ssm:Getparameters", "kms:Decrypt"]
+    resources = ["*"]
+  }
+}
+
+module "ecs_task_ececution_role" {
+  source = "./iam_role"
+  name  = "ecs_task_ececution"
+  identifier = "ecs-tasks.amazonaws.com"
+  policy = data.aws_iam_policy_document.ecs_task_ececution.json
+}
+
+//==============================================
 
 output "instance_id" {
   value = aws_instance.demo.id
@@ -460,6 +489,24 @@ output "domain_name" {
 }
 
 /* 参考
-
 https://dev.classmethod.jp/articles/terraform-ecs-fargate-apache-run/
+*/
+
+/* CloudWatch Logsの設定で出たエラー
+Error: failed creating IAM Role (ecs_task_ececution): InvalidParameter: 1 validation error(s) found.
+│ - minimum field size of 1, CreateRoleInput.AssumeRolePolicyDocument.
+│
+│
+│   with module.ecs_task_ececution_role.aws_iam_role.default,
+│   on iam_role/main.tf line 5, in resource "aws_iam_role" "default":
+│    5: resource "aws_iam_role" "default" {
+│
+╵
+╷
+│ Error: Error attaching policy arn:aws:iam::119138673506:policy/ecs_task_ececution to IAM Role ecs_task_ececution: NoSuchEntity: The role with name ecs_task_ececution cannot be found.
+│ 	status code: 404, request id: 29fdd939-c810-40c5-a0a8-b8c13d6c17e6
+│
+│   with module.ecs_task_ececution_role.aws_iam_role_policy_attachment.default,
+│   on iam_role/main.tf line 26, in resource "aws_iam_role_policy_attachment" "default":
+│   26: resource "aws_iam_role_policy_attachment" "default" {
 */

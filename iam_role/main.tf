@@ -12,10 +12,10 @@ data "aws_iam_policy_document" "assume_role" {
     actions = ["sts:AssumeRole"]
   }
 
-  principals {
+  /*principals {
     type        = "Service"
     identifiers = [var.identifier]
-  }
+  }*/
 }
 
 resource "aws_iam_policy" "default" {
