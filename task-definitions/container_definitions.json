@@ -2,7 +2,8 @@
   {
    "name": "demo",
     "image": "nginx:latest",
-    "essential": "true",
+    "essential": true,
+    "memory": 128,
     "portMappings": [
       {
         "protocol": "tcp",

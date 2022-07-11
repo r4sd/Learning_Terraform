@@ -377,8 +377,8 @@ resource "aws_ecs_cluster" "demo" {
 // ECSのタスク定義　書き方が書籍と現在では違う
 // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_task_definition
 resource "aws_ecs_task_definition" "demo" {
-  //container_definitions = file("task-definitions/container_definitions.json")
-
+  container_definitions = file("task-definitions/container_definitions.json")
+/*
   container_definitions = jsonencode([
         {
           name      = "demo"
@@ -396,10 +396,11 @@ resource "aws_ecs_task_definition" "demo" {
         }
       ]
     )
+*/
 
   family                = "demo"
-  //memory = "512"
-  //cpu = "256"
+  memory = "512"
+  cpu = "256"
   network_mode = "awsvpc" //別モードも調べる
   requires_compatibilities = ["FARGATE"]
 }
@@ -457,3 +458,8 @@ output "alb_dns_name" {
 output "domain_name" {
   value = aws_route53_record.demo.name
 }
+
+/* 参考
+
+https://dev.classmethod.jp/articles/terraform-ecs-fargate-apache-run/
+*/
