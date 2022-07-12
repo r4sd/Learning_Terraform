@@ -2,6 +2,7 @@ variable "example_instance_type" {
   default = "t3.micro"
 }
 
+/*
 // インスタンス設定
 resource "aws_instance" "demo" {
   ami                  = "ami-0b7546e839d7ace12"
@@ -9,12 +10,11 @@ resource "aws_instance" "demo" {
   user_data            = file("./userdata/setup.sh")
   iam_instance_profile = "SSMTest"
   subnet_id            = aws_subnet.private_0.id
-
   tags = {
     Name = "demo"
   }
 }
-
+*/
 //ネットワーク周り
 resource "aws_vpc" "demo" {
   cidr_block           = "10.10.0.0/16"
@@ -374,30 +374,11 @@ resource "aws_ecs_cluster" "demo" {
   name = "demo"
 }
 
+/*
 // ECSのタスク定義　書き方が書籍と現在では違う
 // https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_task_definition
 resource "aws_ecs_task_definition" "demo" {
   container_definitions = file("task-definitions/container_definitions.json")
-/*
-  container_definitions = jsonencode([
-        {
-          name      = "demo"
-          image     = "nginx:latest"
-          cpu       = 1
-          memory    = 1024
-          essential = true
-          portMappings = [
-            {
-              containerPort = 80
-              hostPort      = 80
-              protocol      = "tcp"
-            }
-          ]
-        }
-      ]
-    )
-*/
-
   family                = "demo"
   memory = "512"
   cpu = "256"
@@ -437,7 +418,7 @@ resource "aws_ecs_service" "demo" {
 
 module "nginx_sg" {
   source = "./sg"
-  name = "ginx_sg"
+  name = "nginx_sg"
   vpc_id = aws_vpc.demo.id
   port = 80
   cidr_blocks = [aws_vpc.demo.cidr_block]
@@ -449,6 +430,7 @@ resource "aws_cloudwatch_log_group" "for_ecs" {
   retention_in_days = 1
 }
 
+// arnのポリシーをロールで追加しないとエラーとなる
 data "aws_iam_policy" "ecs_task_ececution_role_policy" {
   arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
@@ -469,9 +451,10 @@ module "ecs_task_ececution_role" {
   identifier = "ecs-tasks.amazonaws.com"
   policy = data.aws_iam_policy_document.ecs_task_ececution.json
 }
-
+*/
 //==============================================
 
+/*
 output "instance_id" {
   value = aws_instance.demo.id
 }
@@ -479,6 +462,7 @@ output "instance_id" {
 output "public_dns" {
   value = aws_instance.demo.public_dns
 }
+*/
 
 output "alb_dns_name" {
   value = aws_lb.demo.dns_name
@@ -509,4 +493,17 @@ Error: failed creating IAM Role (ecs_task_ececution): InvalidParameter: 1 valida
 │   with module.ecs_task_ececution_role.aws_iam_role_policy_attachment.default,
 │   on iam_role/main.tf line 26, in resource "aws_iam_role_policy_attachment" "default":
 │   26: resource "aws_iam_role_policy_attachment" "default" {
+*/
+
+/*
+Versionをあげたことで以下のwarningがでた
+Warning: Argument is deprecated
+│
+│   with data.aws_iam_policy_document.ecs_task_ececution,
+│   on main.tf line 437, in data "aws_iam_policy_document" "ecs_task_ececution":
+│  437:   source_json = data.aws_iam_policy.ecs_task_ececution_role_policy.policy
+│
+│ Use the attribute "source_policy_documents" instead.
+│
+│ (and one more similar warning elsewhere)
 */
